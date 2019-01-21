@@ -1,0 +1,78 @@
+<html>
+<head>
+    <style>
+        body{
+            font-family:monospace;
+            padding:50px;
+        }
+        div{
+            text-align: center;
+            margin-bottom:150px;
+        }
+        .tick, .majorTick{
+            font-size:14px;
+            font-family:monospace;
+        }
+        .line{
+            fill: none;
+            stroke-width: 2.5;
+        }
+        .line2015{
+            stroke:gold;
+        }
+        .line2016{
+            stroke:yellowgreen;
+        }
+        .line2017{
+            stroke:olivedrab;
+        }
+        .line2018{
+            stroke:darkgreen;
+        }
+        .xAxis line{
+            stroke: black;
+        }
+        .yAxis line{
+            stroke-width:1;
+            stroke-dasharray: 3;
+            stroke: silver;
+        }
+        .majorTick > line{
+            stroke-width:1;
+            stroke-dasharray: 3;
+            stroke: black;
+        }
+        .conventionalBars{
+            fill: olivedrab;
+        }
+        .organicBars {
+            fill:gold;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="script.js"></script>
+
+    <div id="nationalPricesContainer">
+        <h1>National Average Prices Over Time, by Year</h1>
+        <form id="nationalPricesForm">
+            <label style="margin-right:0.5em;"><input type=radio name=radio value="conventional" checked>Conventional</label>
+            <label style="margin-right:0.5em;"><input type=radio name=radio value="organic">Organic</label>
+        </form>
+        <svg id="nationalPricesChart"></svg>
+    </div>
+
+    <div id="volumeByYearContainer">
+        <h1>Volume Sold by Year</h1>
+
+        <svg id="volumeByYearChart"></svg>
+    </div>
+
+    <div id="avgPriceByRegionContainer">
+        <svg id="avgPriceByRegionChart"></svg>
+    </div>
+
+</body>
+</html>
