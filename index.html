@@ -60,17 +60,26 @@
         .organicBars {
             fill:gold;
         }
-        .NortheastShape{
-            /* fill: darkgreen; */
+        .regionShapes, .cityPoints{
+            stroke-width: 2;
+            stroke: white;
         }
-        .MidwestShape{
-            /* fill: olivedrab; */
+        .caption{
+            font-family: monospace;
+            fill: black;
+            text-anchor: start;
+            font-weight: bold;
+            text-transform: uppercase;
         }
-        .WestShape{
-            /* fill: yellowgreen; */
-        }
-        .SouthShape{
-            /* fill:gold; */
+        div.tooltip {
+            background-color: white;
+            position: absolute;
+            text-align: center;
+            min-width: 100px;
+            padding: 10px;
+            font: 14px monospace;
+            pointer-events: none;
+            z-index:1000;
         }
     </style>
 </head>

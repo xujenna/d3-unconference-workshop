@@ -156,6 +156,7 @@ function nationalPricesChart(data){
             organicLines.attr("opacity", 1);
         }
     }
+    // svg.call(hover, path);
 }
 
 
@@ -272,6 +273,7 @@ function volumeByRegionChart(data){
             organicBars.attr("opacity", 1);
         }
     }
+    // svg.call(hover, path);
 }
 
 
@@ -287,7 +289,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         .rollup(v => d3.mean(v, d => d.AveragePrice))
         .object(allData2018)
 
-    console.log(regionalRollup);
+    // console.log(regionalRollup);
 
     let cityCoordLookup = {};
     let cities = Object.keys(regionalRollup['conventional']);
@@ -316,7 +318,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         .attr("height", height+100);
 
     // ready-to-use color schemes: https://github.com/d3/d3-scale-chromatic
-    let palette = ["gold", "yellowgreen", "olivedrab", "darkgreen", "saddlebrown"]
+    let palette = ["gold", "#d3e534", "yellowgreen", "olivedrab", "#356d01","#37511f", "saddlebrown"]
     let color = d3.scaleQuantize() // discrete range scale
         .domain([0.5,2.25])
         .range(palette)
@@ -328,72 +330,61 @@ function avgPriceByRegionChart(regionalData, citiesData){
         let center = d3.geoCentroid(regionShapes);
 
         const projection = d3.geoMercator()
-            .scale(910)
-            .translate([width /3, height /3.75])
+            .scale(920)
+            .translate([width /2.75, height /3.75])
             .center(center);
 
         const path = d3.geoPath().projection(projection);
 
-        let conventionalMap = svg.append("g")
+        const tooltip = d3.select("#avgPriceByRegionContainer")
+            .append('div')
+            .attr('class', 'tooltip')
+            .style('opacity', 0);
+
+        svg.append("g")
             .selectAll("g")
             .data(regionShapes.features)
             .enter()
             .append("path")
             .attr("d", d => path(d))
-            .attr("stroke-width", 2)
-            .attr("stroke", "white")
-            // .attr("fill", "olivedrab")
             .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME]))
-            .attr("class", (d) => d.properties.NAME + "Shape")
+            .attr("class", "regionShapes")
 
-        
-        let conventionalPoints = svg.append("g")
+        let cities = svg.append("g")
             .selectAll("circle")
             .data(Object.keys(cityCoordLookup))
             .enter()
             .append("circle")
             .attr("cx", d => projection(cityCoordLookup[d][0])[0])
             .attr("cy", d => projection(cityCoordLookup[d][0])[1])
-            .attr("r", "6px")
-            .attr("stroke", "white")
-            .attr("stroke-width", 2)
+            .attr("r", 7)
             .attr("fill", d => color(regionalRollup['conventional'][d]))
-
-        let organicMap = svg.append("g")
-            .selectAll("g")
-            .data(regionShapes.features)
-            .enter()
-            .append("path")
-            .attr("d", d => path(d))
-            .attr("stroke-width", 2)
-            .attr("stroke", "white")
-            // .attr("fill", "olivedrab")
-            .attr("fill", (d) => color(regionalRollup['organic'][d.properties.NAME]))
-            .attr("class", (d) => d.properties.NAME + "Shape")
-            .attr("opacity", 0)
-
-        let organicPoints = svg.append("g")
-            .selectAll("circle")
-            .data(Object.keys(cityCoordLookup))
-            .enter()
-            .append("circle")
-            .attr("cx", d => projection(cityCoordLookup[d][0])[0])
-            .attr("cy", d => projection(cityCoordLookup[d][0])[1])
-            .attr("r", "6px")
-            .attr("stroke", "white")
-            .attr("stroke-width", 2)
-            .attr("fill", d => color(regionalRollup['organic'][d]))
-            .attr("opacity", 0)
-
+            .attr("class", "cityPoints")
+            .on('mouseover', d => {
+                tooltip
+                  .transition()
+                  .duration(100)
+                  .style('opacity', 0.9);
+                tooltip
+                  .html("<b>"+d+":</b><br>" + "$" + Math.round(regionalRollup[mapChoice.radio.value][d] * 100) /100)
+                  .style('left', (d3.event.pageX -60) + 'px')
+                  .style('top', d3.event.pageY - 70 + 'px');
+              })
+              .on('mouseout', () => {
+                tooltip
+                  .transition()
+                  .duration(500)
+                  .style('opacity', 0);
+              });
 
         const xScale = d3.scaleLinear()
             .domain(d3.extent(color.domain()))
             .rangeRound([600, 860]);
 
         const colorKey = svg.append("g")
-            .attr("transform", "translate(0,40)");
+            .attr("transform", "translate(25,40)");
         colorKey.selectAll("rect")
-            .data(color.range().map(d => color.invertExtent(d))) // data is hex codes
+            .data(color.range().map(d => color.invertExtent(d))) // data here is hex codes
             .enter().append("rect")
               .attr("height", 8)
               .attr("x", d => xScale(d[0]))
@@ -403,13 +394,9 @@ function avgPriceByRegionChart(regionalData, citiesData){
             .attr("class", "caption")
             .attr("x", xScale.range()[0])
             .attr("y", -6)
-            .attr("fill", "#000")
-            .attr("text-anchor", "start")
-            .attr("font-weight", "bold")
             .text("Average Price ($)");
         colorKey.call(d3.axisBottom(xScale)
             .tickSize(13)
-            // .tickFormat(format)
             .tickValues(color.range().slice(1).map(d => color.invertExtent(d)[0])))
           .select(".domain")
             .remove();
@@ -418,18 +405,19 @@ function avgPriceByRegionChart(regionalData, citiesData){
 
         mapChoice.oninput = () => {
             if(mapChoice.radio.value =="conventional"){
-                conventionalMap.attr("opacity", 1);
-                conventionalPoints.attr("opacity", 1);
-                organicPoints.attr("opacity", 0);
-                organicMap.attr("opacity", 0);
+                svg.selectAll("circle")
+                    .attr("fill", d => color(regionalRollup['conventional'][d]))
+                svg.selectAll(".regionShapes")
+                    .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME]))
+
             }
             else{
-                conventionalMap.attr("opacity", 0);
-                conventionalPoints.attr("opacity", 0);
-                organicMap.attr("opacity", 1);
-                organicPoints.attr("opacity", 1);
+                svg.selectAll("circle")
+                    .attr("fill", d => color(regionalRollup['organic'][d]))
+                svg.selectAll(".regionShapes")
+                    .attr("fill", (d) => color(regionalRollup['organic'][d.properties.NAME]))
+
             }
         }
     })
-
 }
