@@ -313,11 +313,13 @@ function avgPriceByRegionChart(regionalData, citiesData){
     const svg = d3.select("#avgPriceByRegionChart");
 
     svg.attr("width", width)
-        .attr("height", height);
+        .attr("height", height+100);
 
-    let color = d3.scaleQuantize()
+    // ready-to-use color schemes: https://github.com/d3/d3-scale-chromatic
+    let palette = ["gold", "yellowgreen", "olivedrab", "darkgreen", "saddlebrown"]
+    let color = d3.scaleQuantize() // discrete range scale
         .domain([0.5,2.25])
-        .range(d3.schemeYlGn[7]);
+        .range(palette)
 
     // https://www.census.gov/geo/maps-data/
     // https://mapshaper.org/
@@ -326,8 +328,8 @@ function avgPriceByRegionChart(regionalData, citiesData){
         let center = d3.geoCentroid(regionShapes);
 
         const projection = d3.geoMercator()
-            .scale(850)
-            .translate([width /2.75, height /3.5])
+            .scale(910)
+            .translate([width /3, height /3.75])
             .center(center);
 
         const path = d3.geoPath().projection(projection);
@@ -382,6 +384,35 @@ function avgPriceByRegionChart(regionalData, citiesData){
             .attr("stroke-width", 2)
             .attr("fill", d => color(regionalRollup['organic'][d]))
             .attr("opacity", 0)
+
+
+        const xScale = d3.scaleLinear()
+            .domain(d3.extent(color.domain()))
+            .rangeRound([600, 860]);
+
+        const colorKey = svg.append("g")
+            .attr("transform", "translate(0,40)");
+        colorKey.selectAll("rect")
+            .data(color.range().map(d => color.invertExtent(d))) // data is hex codes
+            .enter().append("rect")
+              .attr("height", 8)
+              .attr("x", d => xScale(d[0]))
+              .attr("width", d => xScale(d[1]) - xScale(d[0]))
+              .attr("fill", d => color(d[0]));
+        colorKey.append("text")
+            .attr("class", "caption")
+            .attr("x", xScale.range()[0])
+            .attr("y", -6)
+            .attr("fill", "#000")
+            .attr("text-anchor", "start")
+            .attr("font-weight", "bold")
+            .text("Average Price ($)");
+        colorKey.call(d3.axisBottom(xScale)
+            .tickSize(13)
+            // .tickFormat(format)
+            .tickValues(color.range().slice(1).map(d => color.invertExtent(d)[0])))
+          .select(".domain")
+            .remove();
 
         let mapChoice = document.getElementById("avgPriceByRegionForm");
 
