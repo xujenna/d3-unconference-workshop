@@ -7,6 +7,7 @@ d3.csv("avocado.csv").then(function(data) {
     // console.log(data);
 
     let totalUSdata = [];
+    let regionalData = [];
 
     // parses date string to js datetime object
     const parseTime = d3.timeParse("%Y-%m-%d");
