@@ -3,11 +3,12 @@ let height = 500;
 let width = window.innerWidth * 0.6;
 
 
-d3.csv("avocado.csv").then(function(data) {
+d3.csv("data/avocado.csv").then(function(data) {
     // console.log(data);
 
     let totalUSdata = [];
     let regionalData = [];
+    let citiesData = [];
 
     // parses date string to js datetime object
     const parseTime = d3.timeParse("%Y-%m-%d");
@@ -25,13 +26,25 @@ d3.csv("avocado.csv").then(function(data) {
         // collect data points labelled "TotalUS" in separate array
         if(d.region == "TotalUS"){
             totalUSdata.push(d);
-        };
+        }
+        else if(d.region =="Northeast" || 
+                d.region =="GreatLakes" || 
+                d.region =="Plains" || 
+                d.region =="Southeast" || 
+                d.region =="Midsouth" || 
+                d.region =="SouthCentral" || 
+                d.region =="West"){
+            regionalData.push(d)
+        }
+        else{
+            citiesData.push(d);
+        }
     });
 
     // console.log(totalUSdata);
     nationalPricesChart(totalUSdata);
-    volumeByYearChart(totalUSdata);
-
+    volumeByRegionChart(regionalData);
+    avgPriceByRegionChart(regionalData,citiesData);
 });
 
 
@@ -147,22 +160,30 @@ function nationalPricesChart(data){
 
 
 
-function volumeByYearChart(data){
-    let volumeRollup = d3.nest()
+function volumeByRegionChart(data){
+
+    data.forEach(d =>{
+        if(d.region== "GreatLakes" || d.region == "Plains"){
+            d.region = "Midwest"
+        }
+        else if(d.region == "Midsouth" || d.region == "SouthCentral" || d.region == "Southeast"){
+            d.region = "South"
+        }
+    })
+
+    let regionRollup = d3.nest()
         .key(d => d.type)
+        .key(d => d.region)
         .key(d => d.year)
         .rollup(v => d3.sum(v, d => d.TotalVolume))
-        .entries(data);
-
-    let test = Array.from(volumeRollup[0]['values'].keys())
-    console.log(volumeRollup)
+        .entries(data)
 
     let yScale = d3.scaleLinear()
-        .domain([0, (d3.max(volumeRollup[0].values, d => d.value) + d3.max(volumeRollup[1].values, d => d.value))])
+        .domain([0, (d3.sum(regionRollup[0].values[1].values, d => d.value))])
         .range([height - margin.bottom, margin.top])
 
     let xScale = d3.scaleBand()
-        .domain(["2015","2016","2017","2018"])
+        .domain(["Northeast","West","Midwest","South"])
         .range([margin.left, width - margin.right])
         .padding(0.05)
 
@@ -192,7 +213,7 @@ function volumeByYearChart(data){
         .call(g => g.select(".tick:first-of-type line").remove())
         .call(g => g.attr("class", "yAxis"));
 
-    const svg = d3.select("#volumeByYearChart");
+    const svg = d3.select("#volumeByRegionChart");
 
     svg.attr("width", width)
         .attr("height", height);
@@ -202,25 +223,182 @@ function volumeByYearChart(data){
 
     svg.append("g")
         .call(yAxis);
-    
-    svg.append("g")
-        .selectAll("g")
-        .data(volumeRollup)
-        .enter()
-        .append("g")
-            .attr("class", d => d.key + "Bars")
-        .selectAll("rect")
-        .data(d => d.values)
-        .enter()
-        .append("rect")
-            .attr("x", d => xScale(d.key))
-            .attr("y", d => yScale(d.value))
-            .attr("height", d => yScale(height)- yScale(d.value))
-            .attr("width", xScale.bandwidth())
-            .style("mix-blend-mode","multiply")
 
-    d3.selectAll(".conventionalBars")
-        .selectAll("rect")
-        .attr("y", (d,i) => yScale(d.value) - (yScale(height) - yScale(volumeRollup[1]['values'][i]['value'])));
-    // by region
+    
+    let conventionalBars = svg.append("g")
+        .selectAll("g")
+        .data(regionRollup[0].values)
+            .enter()
+            .append("g")
+            .attr("class", d => d.key + "Bars") //region bars
+            .attr("transform", d => "translate("+xScale(d.key)+",0)")
+            .selectAll("g")
+                .data((d,i) => d.values)
+                .enter()
+                .append("rect")
+                    .attr("y", (d,i) => yScale(d.value))
+                    .attr("height", d => yScale(height)- yScale(d.value))
+                    .attr("width", xScale.bandwidth())
+                    .attr("class", d => "bar"+d.key)
+
+    let organicBars = svg.append("g")
+        .selectAll("g")
+        .data(regionRollup[1].values)
+            .enter()
+            .append("g")
+            .attr("class", d => d.key + "Bars") //region bars
+            .attr("transform", d => "translate("+xScale(d.key)+",0)")
+            .selectAll("g")
+                .data((d,i) => d.values)
+                .enter()
+                .append("rect")
+                    .attr("y", (d,i) => yScale(d.value))
+                    .attr("height", d => yScale(height)- yScale(d.value))
+                    .attr("width", xScale.bandwidth())
+                    .attr("class", d => "bar"+d.key)
+                    .attr("opacity", 0);
+
+
+
+    let barChoice = document.getElementById("volumeByRegionForm");
+
+    barChoice.oninput = () => {
+        if(barChoice.radio.value =="conventional"){
+            conventionalBars.attr("opacity", 1);
+            organicBars.attr("opacity", 0);
+        }
+        else{
+            conventionalBars.attr("opacity", 0);
+            organicBars.attr("opacity", 1);
+        }
+    }
+}
+
+
+function avgPriceByRegionChart(regionalData, citiesData){
+
+    regionalData.forEach(d => citiesData.push(d))
+
+    let allData2018 = citiesData.filter(d => d.year == "2018")
+
+    let regionalRollup = d3.nest()
+        .key(d => d.type)
+        .key(d => d.region)
+        .rollup(v => d3.mean(v, d => d.AveragePrice))
+        .object(allData2018)
+
+    console.log(regionalRollup);
+
+    let cityCoordLookup = {};
+    let cities = Object.keys(regionalRollup['conventional']);
+
+    d3.tsv("data/1000-largest-us-cities-by-population-with-geographic-coordinates.tsv").then(function(cityCoords){
+        cities.forEach(d => {
+            cityCoords.forEach(e =>{
+                if(e['City'].includes(d) || d.includes(e['City'])){
+                    cityCoordLookup[d] = []
+                    cityCoordLookup[d].push(e['Coordinates'].split(", "))
+                    let lat = parseFloat(cityCoordLookup[d][0][1])
+                    let long = parseFloat(cityCoordLookup[d][0][0])
+                    cityCoordLookup[d][0][0] = lat;
+                    cityCoordLookup[d][0][1] = long;
+
+                }
+            })
+        })
+    })
+
+    console.log(cityCoordLookup)
+
+    const svg = d3.select("#avgPriceByRegionChart");
+
+    svg.attr("width", width)
+        .attr("height", height);
+
+    let color = d3.scaleQuantize()
+        .domain([0.5,2.25])
+        .range(d3.schemeYlGn[7]);
+
+    // https://www.census.gov/geo/maps-data/
+    // https://mapshaper.org/
+    d3.json("data/cb_2017_us_region_500k.json").then(function(regionShapes){
+
+        let center = d3.geoCentroid(regionShapes);
+
+        const projection = d3.geoMercator()
+            .scale(850)
+            .translate([width /2.75, height /3.5])
+            .center(center);
+
+        const path = d3.geoPath().projection(projection);
+
+        let conventionalMap = svg.append("g")
+            .selectAll("g")
+            .data(regionShapes.features)
+            .enter()
+            .append("path")
+            .attr("d", d => path(d))
+            .attr("stroke-width", 2)
+            .attr("stroke", "white")
+            // .attr("fill", "olivedrab")
+            .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME]))
+            .attr("class", (d) => d.properties.NAME + "Shape")
+
+        
+        let conventionalPoints = svg.append("g")
+            .selectAll("circle")
+            .data(Object.keys(cityCoordLookup))
+            .enter()
+            .append("circle")
+            .attr("cx", d => projection(cityCoordLookup[d][0])[0])
+            .attr("cy", d => projection(cityCoordLookup[d][0])[1])
+            .attr("r", "6px")
+            .attr("stroke", "white")
+            .attr("stroke-width", 2)
+            .attr("fill", d => color(regionalRollup['conventional'][d]))
+
+        let organicMap = svg.append("g")
+            .selectAll("g")
+            .data(regionShapes.features)
+            .enter()
+            .append("path")
+            .attr("d", d => path(d))
+            .attr("stroke-width", 2)
+            .attr("stroke", "white")
+            // .attr("fill", "olivedrab")
+            .attr("fill", (d) => color(regionalRollup['organic'][d.properties.NAME]))
+            .attr("class", (d) => d.properties.NAME + "Shape")
+            .attr("opacity", 0)
+
+        let organicPoints = svg.append("g")
+            .selectAll("circle")
+            .data(Object.keys(cityCoordLookup))
+            .enter()
+            .append("circle")
+            .attr("cx", d => projection(cityCoordLookup[d][0])[0])
+            .attr("cy", d => projection(cityCoordLookup[d][0])[1])
+            .attr("r", "6px")
+            .attr("stroke", "white")
+            .attr("stroke-width", 2)
+            .attr("fill", d => color(regionalRollup['organic'][d]))
+            .attr("opacity", 0)
+
+        let mapChoice = document.getElementById("avgPriceByRegionForm");
+
+        mapChoice.oninput = () => {
+            if(mapChoice.radio.value =="conventional"){
+                conventionalMap.attr("opacity", 1);
+                conventionalPoints.attr("opacity", 1);
+                organicPoints.attr("opacity", 0);
+                organicMap.attr("opacity", 0);
+            }
+            else{
+                conventionalMap.attr("opacity", 0);
+                conventionalPoints.attr("opacity", 0);
+                organicMap.attr("opacity", 1);
+                organicPoints.attr("opacity", 1);
+            }
+        }
+    })
+
 }
