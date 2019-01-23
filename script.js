@@ -118,7 +118,7 @@ function nationalPricesChart(data){
     svg.append("g")
         .call(yAxis);
 
-    let conventionalLines = svg.append("g")
+    let priceLines = svg.append("g")
         .selectAll("path")
         .data(nestedUSdata[0].values)
         .enter()
@@ -127,36 +127,42 @@ function nationalPricesChart(data){
         .attr("class", d => "line " + "line"+d.key)
         .attr("d", d => line(d.values))
 
-    let organicLines = svg.append("g")
-        .selectAll("path")
-        .data(nestedUSdata[1].values)
-        .enter()
-        .append("path")
-        .attr("class", d => "line " + "line"+d.key)
-        .style("mix-blend-mode","multiply")
-        .attr("d", d => line(d.values))
-        .attr("opacity", 0);
-
     d3.selectAll("g.tick")
         .filter(d => d==1)
-        // .select("line")
         .attr("x1", 0)
         .attr("x2", width - margin.right - margin.left)
         .attr("class", "majorTick")
+    
+    let palette = ["gold", "yellowgreen", "olivedrab", "darkgreen"]
+    let years = ["2015", "2016", "2017", "2018"]
+
+    const colorKey = svg.append("g")
+        .attr("transform", "translate(25,40)");
+    colorKey.selectAll("rect")
+        .data(palette)
+        .enter().append("rect")
+          .attr("height", 12)
+          .attr("x", width-margin.right * 2.15)
+          .attr("y", (d,i) => (height - margin.bottom * 2.25) - (20 * (palette.length - i)))
+          .attr("width", 12)
+          .attr("fill", d => d)
+    colorKey.selectAll("text")
+        .data(years)
+        .enter().append("text")
+            .attr("y", (d,i) => (height - margin.bottom * 2.1) - (20 * (palette.length - i)))
+            .attr("x", width-margin.right * 1.85)
+            .text(d => d)
+            .attr("class", "caption")
 
     let lineChoice = document.getElementById("nationalPricesForm");
 
     lineChoice.oninput = () => {
-        if(lineChoice.radio.value =="conventional"){
-            conventionalLines.attr("opacity", 1);
-            organicLines.attr("opacity", 0);
-        }
-        else{
-            conventionalLines.attr("opacity", 0);
-            organicLines.attr("opacity", 1);
-        }
+        let index = (lineChoice.radio.value == "conventional") ? 0 : 1;
+
+        priceLines.data(nestedUSdata[index].values)
+            .attr("class", d => "line " + "line"+d.key)
+            .attr("d", d => line(d.values))
     }
-    // svg.call(hover, path);
 }
 
 
@@ -225,8 +231,7 @@ function volumeByRegionChart(data){
     svg.append("g")
         .call(yAxis);
 
-    
-    let conventionalBars = svg.append("g")
+    let regionBars = svg.append("g")
         .selectAll("g")
         .data(regionRollup[0].values)
             .enter()
@@ -242,38 +247,32 @@ function volumeByRegionChart(data){
                     .attr("width", xScale.bandwidth())
                     .attr("class", d => "bar"+d.key)
 
-    let organicBars = svg.append("g")
-        .selectAll("g")
-        .data(regionRollup[1].values)
-            .enter()
-            .append("g")
-            .attr("class", d => d.key + "Bars") //region bars
-            .attr("transform", d => "translate("+xScale(d.key)+",0)")
-            .selectAll("g")
-                .data((d,i) => d.values)
-                .enter()
-                .append("rect")
-                    .attr("y", (d,i) => yScale(d.value))
-                    .attr("height", d => yScale(height)- yScale(d.value))
-                    .attr("width", xScale.bandwidth())
-                    .attr("class", d => "bar"+d.key)
-                    .attr("opacity", 0);
-
-
-
     let barChoice = document.getElementById("volumeByRegionForm");
 
     barChoice.oninput = () => {
-        if(barChoice.radio.value =="conventional"){
-            conventionalBars.attr("opacity", 1);
-            organicBars.attr("opacity", 0);
+        let index = (barChoice.radio.value =="conventional") ? 0 : 1;
+
+        d3.selectAll(".MidwestBars")
+            .selectAll("rect")
+            .data(regionRollup[index].values[0].values)
+                .attr("y", (d,i) => yScale(d.value))
+                .attr("height", d => yScale(height)- yScale(d.value))
+        d3.selectAll(".SouthBars")
+            .selectAll("rect")
+            .data(regionRollup[index].values[1].values)
+                .attr("y", (d,i) => yScale(d.value))
+                .attr("height", d => yScale(height)- yScale(d.value))
+        d3.selectAll(".NortheastBars")
+            .selectAll("rect")
+            .data(regionRollup[index].values[2].values)
+                .attr("y", (d,i) => yScale(d.value))
+                .attr("height", d => yScale(height)- yScale(d.value))
+        d3.selectAll(".WestBars")
+            .selectAll("rect")
+            .data(regionRollup[index].values[3].values)
+                .attr("y", (d,i) => yScale(d.value))
+                .attr("height", d => yScale(height)- yScale(d.value))
         }
-        else{
-            conventionalBars.attr("opacity", 0);
-            organicBars.attr("opacity", 1);
-        }
-    }
-    // svg.call(hover, path);
 }
 
 
@@ -294,6 +293,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
     let cityCoordLookup = {};
     let cities = Object.keys(regionalRollup['conventional']);
 
+    // create lookup table for city coordinates
     d3.tsv("data/1000-largest-us-cities-by-population-with-geographic-coordinates.tsv").then(function(cityCoords){
         cities.forEach(d => {
             cityCoords.forEach(e =>{
@@ -310,7 +310,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         })
     })
 
-    console.log(cityCoordLookup)
+    // console.log(cityCoordLookup)
 
     const svg = d3.select("#avgPriceByRegionChart");
 
@@ -330,7 +330,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         let center = d3.geoCentroid(regionShapes);
 
         const projection = d3.geoMercator()
-            .scale(920)
+            .scale(width)
             .translate([width /2.75, height /3.75])
             .center(center);
 
@@ -379,7 +379,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
 
         const xScale = d3.scaleLinear()
             .domain(d3.extent(color.domain()))
-            .rangeRound([600, 860]);
+            .rangeRound([width-300, width-50]);
 
         const colorKey = svg.append("g")
             .attr("transform", "translate(25,40)");
@@ -404,20 +404,10 @@ function avgPriceByRegionChart(regionalData, citiesData){
         let mapChoice = document.getElementById("avgPriceByRegionForm");
 
         mapChoice.oninput = () => {
-            if(mapChoice.radio.value =="conventional"){
-                svg.selectAll("circle")
-                    .attr("fill", d => color(regionalRollup['conventional'][d]))
-                svg.selectAll(".regionShapes")
-                    .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME]))
-
-            }
-            else{
-                svg.selectAll("circle")
-                    .attr("fill", d => color(regionalRollup['organic'][d]))
-                svg.selectAll(".regionShapes")
-                    .attr("fill", (d) => color(regionalRollup['organic'][d.properties.NAME]))
-
-            }
+            svg.selectAll("circle")
+                .attr("fill", d => color(regionalRollup[mapChoice.radio.value][d]))
+            svg.selectAll(".regionShapes")
+                .attr("fill", (d) => color(regionalRollup[mapChoice.radio.value][d.properties.NAME]))
         }
     })
 }
