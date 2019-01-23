@@ -339,7 +339,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         const tooltip = d3.select("#avgPriceByRegionContainer")
             .append('div')
             .attr('class', 'tooltip')
-            .style('opacity', 0);
+            .style('display', "none");
 
         svg.append("g")
             .selectAll("g")
@@ -364,17 +364,17 @@ function avgPriceByRegionChart(regionalData, citiesData){
                 tooltip
                   .transition()
                   .duration(100)
-                  .style('opacity', 0.9);
+                  .style('display', "block");
                 tooltip
                   .html("<b>"+d+":</b><br>" + "$" + Math.round(regionalRollup[mapChoice.radio.value][d] * 100) /100)
-                  .style('left', (d3.event.pageX -60) + 'px')
-                  .style('top', d3.event.pageY - 70 + 'px');
+                  .style('left', d3.event.pageX - 60 + 'px')
+                  .style('top', d3.event.pageY - 220 + 'px');
               })
               .on('mouseout', () => {
                 tooltip
                   .transition()
                   .duration(500)
-                  .style('opacity', 0);
+                  .style('display', "none");
               });
 
         const xScale = d3.scaleLinear()
