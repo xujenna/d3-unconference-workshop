@@ -1,9 +1,11 @@
+// properties that'll be applied to all svgs
 let margin = {top:30, right:70, bottom:60, left: 70};
 let height = 500;
 let width = window.innerWidth * 0.6;
 
 
 d3.csv("data/avocado.csv").then(function(data) {
+    // Avocado retail data from http://www.hassavocadoboard.com/retail/volume-and-price-data
     // console.log(data);
 
     let totalUSdata = [];
@@ -323,8 +325,8 @@ function avgPriceByRegionChart(regionalData, citiesData){
         .domain([0.5,2.25])
         .range(palette)
 
-    // https://www.census.gov/geo/maps-data/
-    // https://mapshaper.org/
+    // shapefiles from https://www.census.gov/geo/maps-data/
+    // convert to json at https://mapshaper.org/
     d3.json("data/cb_2017_us_region_500k.json").then(function(regionShapes){
 
         let center = d3.geoCentroid(regionShapes);

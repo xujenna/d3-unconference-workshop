@@ -1,2 +1,2 @@
-# d3-unconference-workshop
-Repo for our ITP Unconference 2019 session on d3.js
+# 1 dataset, 3 ways 🥑
+Repo for our d3.js workshop for ITP Unconference 2019.
