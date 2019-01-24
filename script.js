@@ -2,7 +2,8 @@
 let margin = {top:30, right:70, bottom:60, left: 70};
 let height = 500;
 let width = window.innerWidth * 0.6;
-
+var t = d3.transition()
+        .duration(50)
 
 d3.csv("data/avocado.csv").then(function(data) {
     // Avocado retail data from http://www.hassavocadoboard.com/retail/volume-and-price-data
@@ -162,6 +163,7 @@ function nationalPricesChart(data){
         let index = (lineChoice.radio.value == "conventional") ? 0 : 1;
 
         priceLines.data(nestedUSdata[index].values)
+            .transition(t)
             .attr("class", d => "line " + "line"+d.key)
             .attr("d", d => line(d.values))
     }
@@ -186,13 +188,23 @@ function volumeByRegionChart(data){
         .key(d => d.year)
         .rollup(v => d3.sum(v, d => d.TotalVolume))
         .entries(data)
+        
+    let keys = regionRollup[0].values[0].values.map(d => d.key)
 
-    let yScale = d3.scaleLinear()
+    let stacks = d3.stack()
+        .keys(keys)
+        .value((d, key) => {
+            return d.values.find(d => d.key === key).value
+        })
+    
+    let series = stacks(regionRollup[0].values)
+
+    let yRevScale = d3.scaleLinear()
         .domain([0, (d3.sum(regionRollup[0].values[1].values, d => d.value))])
-        .range([height - margin.bottom, margin.top])
+        .range([height, margin.bottom])
 
     let xScale = d3.scaleBand()
-        .domain(["Northeast","West","Midwest","South"])
+        .domain(['Midwest', 'South', 'Northeast', 'West'])
         .range([margin.left, width - margin.right])
         .padding(0.05)
 
@@ -203,11 +215,11 @@ function volumeByRegionChart(data){
         .tickFormat(d => d.toString())
 
     let xAxis = g => g
-        .attr("transform", "translate(0,"+(height-margin.bottom)+")")
+        .attr("transform", "translate(0,"+(height - margin.bottom)+")")
         .call(xTicks)
         .call(g => g.attr("class", "xAxis"));
 
-    let yTicks = d3.axisLeft(yScale)
+    let yTicks = d3.axisLeft(yRevScale)
         .ticks(4)
         .tickSize(-(width-margin.right-margin.left))
         .tickSizeOuter(0)
@@ -228,52 +240,73 @@ function volumeByRegionChart(data){
         .attr("height", height);
 
     svg.append("g")
+        .attr("class", "x")
         .call(xAxis);
 
     svg.append("g")
+        .attr("class", "y")
         .call(yAxis);
 
-    let regionBars = svg.append("g")
+    let regionBars = svg.append("g").attr("class", "bars")
         .selectAll("g")
-        .data(regionRollup[0].values)
+        .data(series.reverse())
             .enter()
-            .append("g")
+            .append('g')
             .attr("class", d => d.key + "Bars") //region bars
-            .attr("transform", d => "translate("+xScale(d.key)+",0)")
-            .selectAll("g")
-                .data((d,i) => d.values)
+            
+            .each((pd, i, elms) => {
+                // Sub-chart
+                d3.select(elms[i])
+                .selectAll('rect')
+                .data(pd)
                 .enter()
-                .append("rect")
-                    .attr("y", (d,i) => yScale(d.value))
-                    .attr("height", d => yScale(height)- yScale(d.value))
+                .append('rect')
+                    .attr("x", d => xScale(d.data.key))
+                    .attr("y", (d,i) => yRevScale(d[1]) - margin.bottom)
+                    .attr("height", d => yRevScale (d[0]) - yRevScale(d[0] + d[1]))
                     .attr("width", xScale.bandwidth())
-                    .attr("class", d => "bar"+d.key)
+                    .attr("class", (d, i) => {
+                        return "bar" + pd.key
+                    })
+            })
 
     let barChoice = document.getElementById("volumeByRegionForm");
 
-    barChoice.oninput = () => {
+    barChoice.oninput = () => {        
         let index = (barChoice.radio.value =="conventional") ? 0 : 1;
 
-        d3.selectAll(".MidwestBars")
-            .selectAll("rect")
-            .data(regionRollup[index].values[0].values)
-                .attr("y", (d,i) => yScale(d.value))
-                .attr("height", d => yScale(height)- yScale(d.value))
-        d3.selectAll(".SouthBars")
-            .selectAll("rect")
-            .data(regionRollup[index].values[1].values)
-                .attr("y", (d,i) => yScale(d.value))
-                .attr("height", d => yScale(height)- yScale(d.value))
-        d3.selectAll(".NortheastBars")
-            .selectAll("rect")
-            .data(regionRollup[index].values[2].values)
-                .attr("y", (d,i) => yScale(d.value))
-                .attr("height", d => yScale(height)- yScale(d.value))
-        d3.selectAll(".WestBars")
-            .selectAll("rect")
-            .data(regionRollup[index].values[3].values)
-                .attr("y", (d,i) => yScale(d.value))
-                .attr("height", d => yScale(height)- yScale(d.value))
+        // Recalculate data
+        let series = stacks(regionRollup[index].values)
+
+        // Update axes
+        yRevScale
+        .domain([0, (d3.sum(regionRollup[index].values[1].values, d => d.value))])
+        .range([height, margin.bottom])
+        
+        yTicks.scale(yRevScale)
+
+        svg.selectAll("g.yAxis")
+            .transition(t)
+            .call(yAxis);
+
+        // Update bars
+        svg.selectAll("g.bars")
+            .selectAll("g")
+            .data(series.reverse())
+            .each((pd, i, elms) => {
+                // Sub-chart
+                d3.select(elms[i])
+                .selectAll('rect')
+                .data(pd)
+                .transition(t)
+                .attr("x", d => xScale(d.data.key))
+                .attr("y", (d,i) => yRevScale(d[1]) - margin.bottom)
+                .attr("height", d => yRevScale (d[0]) - yRevScale(d[0] + d[1]))
+                .attr("width", xScale.bandwidth())
+                .attr("class", (d, i) => {
+                    return "bar" + pd.key
+                })
+            })
         }
 }
 
@@ -407,8 +440,10 @@ function avgPriceByRegionChart(regionalData, citiesData){
 
         mapChoice.oninput = () => {
             svg.selectAll("circle")
+                .transition(t)
                 .attr("fill", d => color(regionalRollup[mapChoice.radio.value][d]))
             svg.selectAll(".regionShapes")
+                .transition(t)
                 .attr("fill", (d) => color(regionalRollup[mapChoice.radio.value][d.properties.NAME]))
         }
     })
