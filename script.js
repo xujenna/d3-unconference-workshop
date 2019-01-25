@@ -6,7 +6,7 @@ let width = window.innerWidth * 0.6;
 var t = d3.transition()
         .duration(50)
 
-let palette;
+let paletteLookup;
 
 d3.csv("data/avocado.csv").then(function(data) {
     // Avocado retail data from http://www.hassavocadoboard.com/retail/volume-and-price-data
@@ -150,7 +150,7 @@ function nationalPricesChart(data){
 
     // assign colors to keys in lookup
     let years = nestedUSdata[0].values.map(d => d.key)
-    palette = ["gold", "yellowgreen", "olivedrab", "darkgreen"]
+    let palette = ["gold", "yellowgreen", "olivedrab", "darkgreen"]
     paletteLookup = {};
     years.forEach((d,i) =>{
         paletteLookup[d] = palette[i];
@@ -172,8 +172,9 @@ function nationalPricesChart(data){
         .attr("class", "majorTick") // assigns special class to that tick
 
     // create legend container
-    const colorKey = svg.append("g")
-        .attr("transform", "translate(25,40)");
+    let colorKey = svg.append("g")
+        .attr("transform", "translate(25,40)")
+        .attr("id", "colorKey")
     // create legend colors
     colorKey.selectAll("rect")
         .data(years)
@@ -208,7 +209,6 @@ function nationalPricesChart(data){
 
 
 function volumeByRegionChart(data){
-
     data.forEach(d =>{
         if(d.region== "GreatLakes" || d.region == "Plains"){
             d.region = "Midwest"
@@ -303,6 +303,12 @@ function volumeByRegionChart(data){
                     .attr("width", xScale.bandwidth())
                     .attr("fill", paletteLookup[pd.key])
             })
+
+    // duplicate legend from first chart
+    var colorKey = d3.select("#colorKey").html()
+    svg.append('g')
+        .html(colorKey)
+        .attr("transform", "translate(-"+(width/1.3)+",-"+height/1.75+")")
 
     let barChoice = document.getElementById("volumeByRegionForm");
 
