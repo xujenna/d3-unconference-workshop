@@ -346,18 +346,17 @@ function volumeByRegionChart(data){
 
 
 function avgPriceByRegionChart(regionalData, citiesData){
-
+    // combine both datasets for convenience
     regionalData.forEach(d => citiesData.push(d))
-
+    // filter only rows labelled 2018
     let allData2018 = citiesData.filter(d => d.year == "2018")
 
+    // nest data by type, then region
     let regionalRollup = d3.nest()
         .key(d => d.type)
         .key(d => d.region)
-        .rollup(v => d3.mean(v, d => d.AveragePrice))
-        .object(allData2018)
-
-    // console.log(regionalRollup);
+        .rollup(v => d3.mean(v, d => d.AveragePrice)) // calculate mean of average prices
+        .object(allData2018) // returns an object rather than an array
 
     let cityCoordLookup = {};
     let cities = Object.keys(regionalRollup['conventional']);
@@ -373,7 +372,6 @@ function avgPriceByRegionChart(regionalData, citiesData){
                     let long = parseFloat(cityCoordLookup[d][0][0])
                     cityCoordLookup[d][0][0] = lat;
                     cityCoordLookup[d][0][1] = long;
-
                 }
             })
         })
@@ -381,61 +379,71 @@ function avgPriceByRegionChart(regionalData, citiesData){
 
     // console.log(cityCoordLookup)
 
+    // select third svg
     const svg = d3.select("#avgPriceByRegionChart");
 
     svg.attr("width", width)
         .attr("height", height+100);
 
+    // get array of all prices from dataset
+    let prices = Object.values(regionalRollup['conventional']);
+
     // ready-to-use color schemes: https://github.com/d3/d3-scale-chromatic
     let palette = ["gold", "#d3e534", "yellowgreen", "olivedrab", "#356d01","#37511f", "saddlebrown"]
     let color = d3.scaleQuantize() // discrete range scale
-        .domain([0.5,2.25])
-        .range(palette)
+        .domain(d3.extent(prices)) // get max and min of our array of average prices
+        .range(palette) // map data to palette
 
     // shapefiles from https://www.census.gov/geo/maps-data/
     // convert to json at https://mapshaper.org/
     d3.json("data/cb_2017_us_region_500k.json").then(function(regionShapes){
 
+        // calculates center of geojson
         let center = d3.geoCentroid(regionShapes);
 
+        // define map projection
         const projection = d3.geoMercator()
             .scale(width)
             .translate([width /2.75, height /3.75])
             .center(center);
 
-        const path = d3.geoPath().projection(projection);
+        // define mapping function and pass in projection
+        const mapper = d3.geoPath().projection(projection);
 
+        // create div for tooltip
         const tooltip = d3.select("#avgPriceByRegionContainer")
             .append('div')
             .attr('class', 'tooltip')
             .style('display', "none");
 
+        // create group for map paths
         svg.append("g")
             .selectAll("g")
             .data(regionShapes.features)
             .enter()
             .append("path")
-            .attr("d", d => path(d))
-            .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME]))
+            .attr("d", d => mapper(d)) // draw map paths
+            .attr("fill", (d) => color(regionalRollup['conventional'][d.properties.NAME])) // get name of region from geojson, look up its average price from dataset, find color assigned to that price
             .attr("class", "regionShapes")
 
+        // create group for city points
         let cities = svg.append("g")
             .selectAll("circle")
             .data(Object.keys(cityCoordLookup))
             .enter()
             .append("circle")
-            .attr("cx", d => projection(cityCoordLookup[d][0])[0])
-            .attr("cy", d => projection(cityCoordLookup[d][0])[1])
+            .attr("cx", d => projection(cityCoordLookup[d][0])[0]) // projection returns an array of 2 points, get first point for x coordinate
+            .attr("cy", d => projection(cityCoordLookup[d][0])[1]) // get second point for y coordinate
             .attr("r", 7)
-            .attr("fill", d => color(regionalRollup['conventional'][d]))
+            .attr("fill", d => color(regionalRollup['conventional'][d])) // look up price for current city, get color assigned to that number
             .attr("class", "cityPoints")
-            .on('mouseover', d => {
+            .on('mouseover', d => { // add an event listener for tooltip for each circle
                 tooltip
                   .transition()
                   .duration(100)
-                  .style('display', "block");
+                  .style('display', "block"); // reveal div (default is display:none)
                 tooltip
-                  .html("<b>"+d+":</b><br>" + "$" + Math.round(regionalRollup[mapChoice.radio.value][d] * 100) /100)
+                  .html("<b>"+d+":</b><br>" + "$" + Math.round(regionalRollup[mapChoice.radio.value][d] * 100) /100) // actual text of tooltip
                   .style('left', d3.event.pageX - 60 + 'px')
                   .style('top', d3.event.pageY - 220 + 'px');
               })
@@ -446,27 +454,31 @@ function avgPriceByRegionChart(regionalData, citiesData){
                   .style('display', "none");
               });
 
+        // create a scale for color legend
         const xScale = d3.scaleLinear()
-            .domain(d3.extent(color.domain()))
-            .rangeRound([width-300, width-50]);
+            .domain(d3.extent(color.domain())) // min and max of prices
+            .rangeRound([width-300, width-50]); // map colors to pixel values
 
+        // append group for legend and position
         const colorKey = svg.append("g")
             .attr("transform", "translate(25,40)");
         colorKey.selectAll("rect")
-            .data(color.range().map(d => color.invertExtent(d))) // data here is hex codes
+            .data(color.range().map(d => color.invertExtent(d))) // data is arrays of price ranges assigned to each color
             .enter().append("rect")
               .attr("height", 8)
-              .attr("x", d => xScale(d[0]))
-              .attr("width", d => xScale(d[1]) - xScale(d[0]))
-              .attr("fill", d => color(d[0]));
+              .attr("x", d => xScale(d[0])) // get initial value of the price range, assign as x coordinat
+              .attr("width", d => xScale(d[1]) - xScale(d[0])) // subtract max value of price range from min value for width
+              .attr("fill", d => color(d[0])); // look up color for that price range
+        // create title of legend
         colorKey.append("text")
             .attr("class", "caption")
-            .attr("x", xScale.range()[0])
+            .attr("x", xScale.range()[0]) // start title at first color rect
             .attr("y", -6)
             .text("Average Price ($)");
+        // create "axis" for color legend
         colorKey.call(d3.axisBottom(xScale)
             .tickSize(13)
-            .tickValues(color.range().slice(1).map(d => color.invertExtent(d)[0])))
+            .tickValues(color.range().slice(1).map(d => color.invertExtent(d)[0]))) // get initial value of price ranges as axis labels
           .select(".domain")
             .remove();
 
