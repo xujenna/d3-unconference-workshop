@@ -2,8 +2,11 @@
 let margin = {top:30, right:70, bottom:60, left: 70};
 let height = 500;
 let width = window.innerWidth * 0.6;
+
 var t = d3.transition()
         .duration(50)
+
+let palette;
 
 d3.csv("data/avocado.csv").then(function(data) {
     // Avocado retail data from http://www.hassavocadoboard.com/retail/volume-and-price-data
@@ -14,11 +17,10 @@ d3.csv("data/avocado.csv").then(function(data) {
     let citiesData = [];
 
     // parses date string to js datetime object
+    // https://github.com/d3/d3-time-format
     const parseTime = d3.timeParse("%Y-%m-%d");
 
-    // formats js datetime object to desired string
-    const formatTime = d3.timeFormat("%b %d");
-
+    // loop through data, group by regional sections
     data.forEach(d => {
         d.Date = parseTime(d.Date);
 
@@ -26,10 +28,11 @@ d3.csv("data/avocado.csv").then(function(data) {
         d.AveragePrice = +d.AveragePrice;
         d.TotalVolume = +d.TotalVolume;
 
-        // collect data points labelled "TotalUS" in separate array
+        // collect rows labelled "TotalUS" in separate array
         if(d.region == "TotalUS"){
             totalUSdata.push(d);
         }
+        // collect rows labelled with region names
         else if(d.region =="Northeast" || 
                 d.region =="GreatLakes" || 
                 d.region =="Plains" || 
@@ -39,27 +42,35 @@ d3.csv("data/avocado.csv").then(function(data) {
                 d.region =="West"){
             regionalData.push(d)
         }
+        // collect rows all other rows (labelled with cities)
         else{
             citiesData.push(d);
         }
     });
 
     // console.log(totalUSdata);
+    // console.log(regionalData);
+    // console.log(citiesData);
+
     nationalPricesChart(totalUSdata);
     volumeByRegionChart(regionalData);
     avgPriceByRegionChart(regionalData,citiesData);
 });
 
 
-function nationalPricesChart(data){
-    // nesting data http://bl.ocks.org/shancarter/raw/4748131/
+// draw first chart
 
+function nationalPricesChart(data){
+
+    // convert time object to specific time string format
     const weekify = d3.timeFormat("%U");
 
+    // create new key for week number
     data.forEach(d => {
         d.Week = +weekify(d.Date);
     })
 
+    // nesting data http://bl.ocks.org/shancarter/raw/4748131/
     let nestedUSdata = d3.nest()
         .key(d => d.type)
         .key(d => d.year)
@@ -67,88 +78,112 @@ function nationalPricesChart(data){
 
     // console.log(nestedUSdata);
 
+    // define y axis properties
     let yScale = d3.scaleLinear()
+        // domain (min and max) of y values
         .domain([0, d3.max(data, d => d.AveragePrice)])
+        // range of chart's pixel values (y scale is flipped—origin is top-left of window)
         .range([height - margin.bottom, margin.top])
 
+    // define x axis properties
     let xScale = d3.scaleLinear()
+        // domain (min and max) of x values
         .domain(d3.extent(data, d => d.Week))
+        // range of chart's pixel values
         .range([margin.left, width - margin.right])
     
-    const toDate = d3.timeParse("%U");
-    const date_ify = d3.timeFormat("%b-%d")
+    // convert from week number back to date object
+    const toDateObj = d3.timeParse("%U");
+    // convert from date object to new string format
+    const toDateString = d3.timeFormat("%b-%d")
 
+    // define properties for x axis ticks
     let xTicks = d3.axisBottom(xScale)
-        .ticks(7)
-        .tickSizeOuter(0)
-        .tickFormat(d => date_ify(toDate(d)))
-        .tickPadding(10)
-
-    let xAxis = g => g
-        .attr("transform", "translate(0,"+(height-margin.bottom)+")")
-        .call(xTicks)
-        .call(g => g.select(".tick:first-of-type text").remove())
-        .call(g => g.select(".tick:first-of-type line").remove())
-        .call(g => g.attr("class", "xAxis"));
+        .ticks(7) // number of ticks
+        .tickSizeOuter(0) // size of outer ticks
+        .tickFormat(d => toDateString(toDateObj(d))) // format week numbers to date strings
+        .tickPadding(10) // padding between ticks and labels 
 
     let yTicks = d3.axisLeft(yScale)
         .ticks(5)
         .tickFormat(d => "$" + d)
-        .tickSize(-(width-margin.right-margin.left))
+        .tickSize(-(width-margin.right-margin.left)) // elongates y axis ticks to span chart width
         .tickSizeOuter(0)
         .tickPadding(10)
 
+    // assemble x axis
+    let xAxis = g => g
+        .attr("transform", "translate(0,"+(height-margin.bottom)+")") // move x axis to bottom of chart
+        .call(xTicks)
+        .call(g => g.select(".tick:first-of-type text").remove()) // removes first label on x axis
+        .call(g => g.select(".tick:first-of-type line").remove()) // removes first tick on x axis
+        .call(g => g.attr("class", "xAxis")); // gives class of .xAxis
+
+    // assemble y axis
     let yAxis = g => g
-        .attr("transform", "translate("+margin.left+",0)")
+        .attr("transform", "translate("+margin.left+",0)") // enforces left margin
         .call(yTicks)
-        .call(g => g.select(".domain").remove())
-        .call(g => g.select(".tick:first-of-type line").remove())
-        .call(g => g.attr("class", "yAxis"));;
+        .call(g => g.select(".domain").remove()) // removes y axis line
+        .call(g => g.select(".tick:first-of-type line").remove()) // removes first y axis tick
+        .call(g => g.attr("class", "yAxis")); // gives class .yAxis
 
-    const line = d3.line()
-        .defined(d => !isNaN(d.AveragePrice))
-        .x(d => xScale(d.Week))
-        .y(d => yScale(d.AveragePrice));
-
+    // select first svg
     const svg = d3.select("#nationalPricesChart");
     
+    // define svg dimensions
     svg.attr("width", width)
         .attr("height", height);
 
+    // append x axis to svg
     svg.append("g")
         .call(xAxis);
 
+    // append y axis to svg
     svg.append("g")
         .call(yAxis);
 
-    let priceLines = svg.append("g")
+    // line function
+    const line = d3.line()
+        .defined(d => !isNaN(d.AveragePrice)) // ends line when data ends
+        .x(d => xScale(d.Week)) // scales x data to chart's x range
+        .y(d => yScale(d.AveragePrice)); // scales y data to chart's y range
+
+    // assign colors to keys in lookup
+    let years = nestedUSdata[0].values.map(d => d.key)
+    palette = ["gold", "yellowgreen", "olivedrab", "darkgreen"]
+    paletteLookup = {};
+    years.forEach((d,i) =>{
+        paletteLookup[d] = palette[i];
+    })
+
+    // create lines
+    let priceLines = svg.append("g") // create a group element for lines
         .selectAll("path")
-        .data(nestedUSdata[0].values)
+        .data(nestedUSdata[0].values) // pass conventional avocado data as default
         .enter()
         .append("path")
-        .style("mix-blend-mode","multiply")
-        .attr("class", d => "line " + "line"+d.key)
-        .attr("d", d => line(d.values))
+        .attr("class","line") // assigns general .line class
+        .attr("stroke", d => paletteLookup[d.key])
+        .attr("d", d => line(d.values)) // pass data to line function
 
+    // emphasize $1 tick 
     d3.selectAll("g.tick")
-        .filter(d => d==1)
-        .attr("x1", 0)
-        .attr("x2", width - margin.right - margin.left)
-        .attr("class", "majorTick")
-    
-    let palette = ["gold", "yellowgreen", "olivedrab", "darkgreen"]
-    let years = ["2015", "2016", "2017", "2018"]
+        .filter(d => d==1) // filters $1 tick from rest of tick selections
+        .attr("class", "majorTick") // assigns special class to that tick
 
+    // create legend container
     const colorKey = svg.append("g")
         .attr("transform", "translate(25,40)");
+    // create legend colors
     colorKey.selectAll("rect")
-        .data(palette)
+        .data(years)
         .enter().append("rect")
           .attr("height", 12)
           .attr("x", width-margin.right * 2.15)
           .attr("y", (d,i) => (height - margin.bottom * 2.25) - (20 * (palette.length - i)))
           .attr("width", 12)
-          .attr("fill", d => d)
+          .attr("fill", d => paletteLookup[d])
+    // create legend labels
     colorKey.selectAll("text")
         .data(years)
         .enter().append("text")
@@ -157,15 +192,16 @@ function nationalPricesChart(data){
             .text(d => d)
             .attr("class", "caption")
 
+    // select radio buttons (this is vanilla js)
     let lineChoice = document.getElementById("nationalPricesForm");
 
+    // transition chart when a radio button is selected
     lineChoice.oninput = () => {
         let index = (lineChoice.radio.value == "conventional") ? 0 : 1;
 
         priceLines.data(nestedUSdata[index].values)
-            .transition(t)
-            .attr("class", d => "line " + "line"+d.key)
-            .attr("d", d => line(d.values))
+            .transition(t) // creates animation between transitioning svg elements
+            .attr("d", d => line(d.values)) // update lines with new data
     }
 }
 
@@ -265,9 +301,7 @@ function volumeByRegionChart(data){
                     .attr("y", (d,i) => yRevScale(d[1]) - margin.bottom)
                     .attr("height", d => yRevScale (d[0]) - yRevScale(d[0] + d[1]))
                     .attr("width", xScale.bandwidth())
-                    .attr("class", (d, i) => {
-                        return "bar" + pd.key
-                    })
+                    .attr("fill", paletteLookup[pd.key])
             })
 
     let barChoice = document.getElementById("volumeByRegionForm");
