@@ -391,12 +391,11 @@ function avgPriceByRegionChart(regionalData, citiesData){
     svg.attr("width", width)
         .attr("height", height+100);
 
-    // get array of all prices from dataset
-    // let prices = Object.values(regionalRollup['conventional']);
-    let prices = regionalData.map(d => d.AveragePrice)
+    // get array of all prices for 2018 from dataset
+    let prices = regionalData.filter(d => d.year == "2018").map(d => d.AveragePrice)
 
     // ready-to-use color schemes: https://github.com/d3/d3-scale-chromatic
-    let palette = ["gold", "#d3e534", "yellowgreen", "olivedrab", "#356d01","#37511f", "saddlebrown", "darkred"]
+    let palette = ["gold", "#d3e534", "yellowgreen", "olivedrab", "#356d01","#37511f", "saddlebrown"]
     let color = d3.scaleQuantize() // discrete range scale
         .domain(d3.extent(prices)) // get max and min of our array of average prices
         .range(palette) // map data to palette
