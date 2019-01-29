@@ -305,10 +305,17 @@ function volumeByRegionChart(data){
             })
 
     // duplicate legend from first chart
-    var colorKey = d3.select("#colorKey").html()
-    svg.append('g')
-        .html(colorKey)
-        .attr("transform", "translate(-"+(width/1.3)+",-"+height/1.75+")")
+    var colorKeyHTML = d3.select("#colorKey").html()
+    var colorKey = svg.append('g')
+        .html(colorKeyHTML)
+        .attr("transform", "translate("+margin.left+","+margin.top+")")
+    colorKey.selectAll("rect")
+          .attr("x", xScale.bandwidth() - 70)
+          .attr("y", (d,i) => (margin.bottom) - (20 * (Object.keys(paletteLookup).length - i)))
+    colorKey.selectAll("text")
+        .attr("y", (d,i) => (margin.bottom+10) - (20 * (Object.keys(paletteLookup).length - i)))
+        .attr("x", xScale.bandwidth() - 50)
+
 
     let barChoice = document.getElementById("volumeByRegionForm");
 
@@ -371,7 +378,8 @@ function avgPriceByRegionChart(regionalData, citiesData){
     d3.tsv("data/1000-largest-us-cities-by-population-with-geographic-coordinates.tsv").then(function(cityCoords){
         cities.forEach(d => {
             cityCoords.forEach(e =>{
-                if(e['City'].includes(d) || d.includes(e['City'])){
+                let citySplit = e['City'].split(' ')
+                if((d !== "South" && d !=="Midwest" && d !=="Northeast" && d !=="West") && e['City'].includes(d) || d.includes(e['City']) || (d.includes(citySplit[citySplit.length-2]) && d.includes(citySplit[citySplit.length-1]))){
                     cityCoordLookup[d] = []
                     cityCoordLookup[d].push(e['Coordinates'].split(", "))
                     let lat = parseFloat(cityCoordLookup[d][0][1])
@@ -383,7 +391,7 @@ function avgPriceByRegionChart(regionalData, citiesData){
         })
     })
 
-    // console.log(cityCoordLookup)
+    console.log(cityCoordLookup)
 
     // select third svg
     const svg = d3.select("#avgPriceByRegionChart");
